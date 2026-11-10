@@ -200,8 +200,9 @@ class PemantauService {
     cekPeringatan() {
         const i = this.tampilkanInformasi();
         if (!i.total) return new Peringatan('Belum ada anggaran bulan ini. Atur di menu Anggaran Bulanan.', LevelPeringatan.AMAN);
-        const pct = i.batas ? i.pengeluaranHariIni / i.batas * 100 : 0;
         if (i.sisaAnggaranBulanan < 0) return new Peringatan('Anggaran bulanan sudah terlampaui!', LevelPeringatan.MELEBIHI_BATAS);
+        if (!i.batas) return new Peringatan('Batas harian belum diatur. Isi di menu Anggaran Bulanan agar peringatan harian aktif.', LevelPeringatan.AMAN);
+        const pct = i.pengeluaranHariIni / i.batas * 100;
         if (pct > 100) return new Peringatan(`PERINGATAN! Pengeluaran hari ini melebihi batas harian (${Math.round(pct)}%).`, LevelPeringatan.MELEBIHI_BATAS);
         if (pct >= 80) return new Peringatan(`PERINGATAN! Pengeluaran hari ini sudah mencapai ${Math.round(pct)}% dari batas harian. Hemat ya!`, LevelPeringatan.HAMPIR_HABIS);
         return new Peringatan('Pengeluaran hari ini masih aman. Pertahankan!', LevelPeringatan.AMAN);
@@ -242,9 +243,15 @@ class App {
         this.kRepo = new KategoriRepository(s); this.tRepo = new TransaksiRepository(s, this.kRepo); this.aRepo = new AnggaranRepository(s);
         this.kSvc = new KategoriService(this.kRepo, this.tRepo); this.tSvc = new TransaksiService(this.tRepo, this.kRepo); this.klasSvc = new KlasifikasiService(this.tRepo);
         this.aSvc = new AnggaranService(this.aRepo); this.pSvc = new PemantauService(this.tRepo, this.aRepo); this.rSvc = new RingkasanService(this.tRepo); this.lSvc = new LaporanService(this.tRepo, this.kRepo);
-        if (!this.kRepo.ambilSemua().length) [['Uang Kiriman', 'PEMASUKAN'], ['Makan & Minum', 'PENGELUARAN'], ['Kopi & Nongkrong', 'PENGELUARAN'], ['Transportasi', 'PENGELUARAN'], ['Pulsa & Internet', 'PENGELUARAN']].forEach(([n, t]) => this.kSvc.tambahKategori(n, t, ''));
+        if (!this.kRepo.ambilSemua().length || !localStorage.getItem(this.prefix + 'seed2')) { this.seedKategori(); localStorage.setItem(this.prefix + 'seed2', '1'); }
     }
-    toast(m, err) { $('#toast').innerHTML = `<div class="toast ${err ? 'err' : ''}">${esc(m)}<span onclick="this.parentNode.remove()">✕</span></div>`; }
+    seedKategori() {
+        const P = 'PENGELUARAN', M = 'PEMASUKAN';
+        [['Makan', P], ['Bayar Kos', P], ['Transportasi', P], ['Nongkrong', P], ['Rokok', P], ['Kopi & Minum', P], ['Laundry', P], ['Pulsa & Internet', P], ['Listrik & Air', P],
+        ['Belanja Kebutuhan', P], ['Kuliah & Tugas', P], ['Kesehatan', P], ['Hiburan', P], ['Lainnya', P], ['Uang Kiriman', M], ['Gaji / Part-time', M], ['Beasiswa', M], ['Lainnya', M]]
+            .forEach(([n, t]) => { try { this.kSvc.tambahKategori(n, t, ''); } catch (e) { /* sudah ada */ } });
+    }
+    toast(m, err) { $('#toast').innerHTML = `<div class="toast ${err === 'warn' ? 'warn' : err ? 'err' : ''}">${esc(m)}<span onclick="this.parentNode.remove()">✕</span></div>`; }
     coba(fn) { try { fn(); return true; } catch (e) { this.toast(e.message, true); return false; } }
     render() {
         document.querySelectorAll('#nav a').forEach(a => a.classList.toggle('on', a.dataset.page === this.page));
@@ -254,11 +261,10 @@ class App {
     }
     /* --- Dashboard (Alsyan) --- */
     v_dashboard() {
-        const i = this.pSvc.tampilkanInformasi(), w = this.pSvc.cekPeringatan(), [b, t] = bt(hariIni()), r = this.rSvc.buatRingkasan(b, t), tot = r.getTotalKebutuhan() + r.getTotalKeinginan() || 1;
-        const cls = { AMAN: 'AMAN', 'HAMPIR HABIS': 'HAMPIR', 'MELEBIHI BATAS': 'LEBIH' }[w.getLevel()], ic = { AMAN: '✅', HAMPIR: '🔔', LEBIH: '⛔' }[cls];
+        const i = this.pSvc.tampilkanInformasi(), [b, t] = bt(hariIni()), r = this.rSvc.buatRingkasan(b, t), tot = r.getTotalKebutuhan() + r.getTotalKeinginan() || 1;
         const last = this.tSvc.tampilkanRiwayat().slice(0, 5);
         const st = (j, v, s) => `<div class="card stat"><small>${j}</small><h3>${v}</h3><span class="muted">${s}</span></div>`;
-        return `<div class="alert ${cls}"><span class="ic">${ic}</span><div><b>Status Peringatan: ${w.getLevel()}</b><p>${esc(w.getPesan())}</p></div></div>
+        return `${this.banner()}
     <div class="stats">${st('Total Saldo', rp(i.saldo), 'Akumulasi Pemasukan - Pengeluaran')}${st('Pengeluaran Hari Ini', rp(i.pengeluaranHariIni), 'Hari ini')}${st('Sisa Batas Harian', rp(i.sisaBatasHarian), 'Batas: ' + rp(i.batas) + ' / hari')}${st('Sisa Anggaran Bulan Ini', rp(i.sisaAnggaranBulanan), 'Target: ' + rp(i.total))}</div>
     <div class="two"><div class="card"><div class="row"><h3>Kebutuhan vs Keinginan</h3><span class="muted">Bulan Ini</span></div>
       <p class="muted">Fitur 6.0 membantu mengevaluasi seberapa boros kamu membelanjakan uang kiriman kos untuk keinginan non-esensial.</p>
@@ -266,6 +272,10 @@ class App {
       <div class="row" style="color:var(--red)"><b>● Keinginan</b><b>${rp(r.getTotalKeinginan())}</b></div><div class="bar"><i style="width:${r.getTotalKeinginan() / tot * 100}%;background:#e05468"></i></div>
       <div class="row"><span class="muted">Persentase Keinginan:</span><span class="pill">${r.getPersentaseKeinginan().toFixed(1)}% dari Total Pengeluaran</span></div></div>
     <div class="card"><div class="row"><h3>Transaksi Terakhir</h3><a class="ok" style="cursor:pointer;font-weight:600" data-go="transaksi">Lihat Semua →</a></div>${this.tabelTx(last, false)}</div></div>`;
+    }
+    banner() {
+        const w = this.pSvc.cekPeringatan(), cls = { AMAN: 'AMAN', 'HAMPIR HABIS': 'HAMPIR', 'MELEBIHI BATAS': 'LEBIH' }[w.getLevel()], ic = { AMAN: '✅', HAMPIR: '🔔', LEBIH: '⛔' }[cls];
+        return `<div class="alert ${cls}"><span class="ic">${ic}</span><div><b>Status Peringatan: ${w.getLevel()}</b><p>${esc(w.getPesan())}</p></div></div>`;
     }
     badge(t) { return t instanceof Pemasukan ? '<span class="badge b-in">Pemasukan</span>' : t.getJenis() === 'KEBUTUHAN' ? '<span class="badge b-need">Kebutuhan</span>' : '<span class="badge b-want">Keinginan</span>'; }
     tabelTx(list, aksi) {
@@ -278,10 +288,10 @@ class App {
     v_transaksi() {
         const e = this.edit ? this.tRepo.cariById(this.edit) : null, tipe = e ? e.getTipe() : (this.tipeForm || 'PENGELUARAN'), kats = this.kSvc.ambilKategoriByTipe(tipe), f = this.filter;
         const opt = (list, sel) => list.map(k => `<option value="${k.getId()}" ${k.getId() === sel ? 'selected' : ''}>${esc(k.getNama())}</option>`).join('');
-        return `<div class="card"><h3>${e ? 'Ubah' : 'Tambah'} Transaksi</h3><form class="f" id="fTx">
+        return `${this.banner()}<div class="card"><h3>${e ? 'Ubah' : 'Tambah'} Transaksi</h3><form class="f" id="fTx">
       <div><label>Tipe</label><select id="txTipe" ${e ? 'disabled' : ''}><option value="PENGELUARAN" ${tipe === 'PENGELUARAN' ? 'selected' : ''}>Pengeluaran</option><option value="PEMASUKAN" ${tipe === 'PEMASUKAN' ? 'selected' : ''}>Pemasukan</option></select></div>
       <div><label>Tanggal</label><input type="date" name="tanggal" value="${e ? e.getTanggal() : hariIni()}" required></div>
-      <div><label>Kategori</label><select name="kategoriId" required>${opt(kats, e?.getKategori()?.getId())}</select></div>
+      <div><label>Kategori</label><select name="kategoriId" required><option value="">Pilih kategori</option>${opt(kats, e?.getKategori()?.getId())}</select>${kats.length ? '' : `<small class="muted">Belum ada kategori ${tipe.toLowerCase()}. <a class="ok" style="cursor:pointer" data-go="kategori">Tambah di menu Kategori</a></small>`}</div>
       <div><label>Nominal (Rp)</label><input type="number" name="jumlah" min="1" value="${e ? e.getJumlah() : ''}" required></div>
       <div><label>Keterangan</label><input name="keterangan" value="${esc(e?.getKeterangan() ?? '')}"></div>
       ${tipe === 'PENGELUARAN' ? `<div><label>Jenis</label><select name="jenis"><option value="KEBUTUHAN" ${e?.getJenis?.() === 'KEBUTUHAN' ? 'selected' : ''}>Kebutuhan</option><option value="KEINGINAN" ${e?.getJenis?.() === 'KEINGINAN' ? 'selected' : ''}>Keinginan</option></select></div>` : ''}
@@ -294,7 +304,7 @@ class App {
     v_kategori() {
         const e = this.edit ? this.kRepo.cariById(this.edit) : null;
         const rows = this.kSvc.ambilSemuaKategori().map(k => `<tr><td>${esc(k.getNama())}</td><td><span class="badge ${k.getTipe() === 'PEMASUKAN' ? 'b-in' : 'b-want'}">${k.getTipe() === 'PEMASUKAN' ? 'Pemasukan' : 'Pengeluaran'}</span></td><td class="muted">${esc(k.getDeskripsi())}</td><td class="n"><button class="btn sm ghost" data-edit-kat="${k.getId()}">Ubah</button> <button class="btn sm del" data-del-kat="${k.getId()}">Hapus</button></td></tr>`).join('');
-        return `<div class="card"><h3>${e ? 'Ubah' : 'Tambah'} Kategori</h3><form class="f" id="fKat"><div><label>Nama</label><input name="nama" value="${esc(e?.getNama() ?? '')}" required></div>
+        return `<div class="card"><div class="row"><h3>${e ? 'Ubah' : 'Tambah'} Kategori</h3><button class="btn sm ghost" data-seed>Pulihkan kategori bawaan</button></div><form class="f" id="fKat"><div><label>Nama</label><input name="nama" value="${esc(e?.getNama() ?? '')}" required></div>
       <div><label>Tipe</label><select name="tipe"><option value="PENGELUARAN" ${e?.getTipe() === 'PENGELUARAN' ? 'selected' : ''}>Pengeluaran</option><option value="PEMASUKAN" ${e?.getTipe() === 'PEMASUKAN' ? 'selected' : ''}>Pemasukan</option></select></div>
       <div><label>Deskripsi</label><input name="deskripsi" value="${esc(e?.getDeskripsi() ?? '')}"></div><div><button class="btn primary">${e ? 'Simpan Perubahan' : 'Tambah'}</button> ${e ? '<button class="btn ghost" type="button" data-batal>Batal</button>' : ''}</div></form></div>
     <div class="card"><table><tr><th>Nama</th><th>Tipe</th><th>Deskripsi</th><th></th></tr>${rows}</table></div>`;
@@ -320,6 +330,7 @@ class App {
         const t = e.target, d = t.dataset;
         if (d.go) { this.page = d.go; this.render(); }
         else if ('batal' in d) { this.edit = null; this.render(); }
+        else if ('seed' in d) { this.seedKategori(); this.toast('Kategori bawaan dipulihkan'); this.render(); }
         else if (d.editTx) { this.edit = +d.editTx; this.render(); } else if (d.editKat) { this.edit = +d.editKat; this.render(); } else if (d.editAng) { this.edit = +d.editAng; this.render(); }
         else if (d.delTx && confirm('Hapus transaksi ini?')) { this.tSvc.hapusTransaksi(+d.delTx); this.render(); }
         else if (d.delKat && confirm('Hapus kategori ini?')) { if (this.coba(() => this.kSvc.hapusKategori(+d.delKat))) this.render(); }
@@ -332,7 +343,7 @@ class App {
     }
     kirim(e) {
         const f = e.target; if (f.id === 'loginForm') return; e.preventDefault(); const d = Object.fromEntries(new FormData(f));
-        if (f.id === 'fTx') { if (this.coba(() => this.edit ? this.tSvc.ubahTransaksi(this.edit, d) : this.tSvc.tambahTransaksi(d))) { this.toast(this.edit ? 'Transaksi diubah' : 'Transaksi ditambahkan'); this.edit = null; this.render(); } }
+        if (f.id === 'fTx') { if (this.coba(() => this.edit ? this.tSvc.ubahTransaksi(this.edit, d) : this.tSvc.tambahTransaksi(d))) { const w = this.pSvc.cekPeringatan(), lv = w.getLevel(); this.toast(lv === LevelPeringatan.AMAN ? (this.edit ? 'Transaksi diubah' : 'Transaksi ditambahkan') : w.getPesan(), lv === LevelPeringatan.MELEBIHI_BATAS ? true : lv === LevelPeringatan.HAMPIR_HABIS ? 'warn' : false); this.edit = null; this.render(); } }
         else if (f.id === 'fFilter') { this.filter = { ...this.filter, ...d }; this.render(); }
         else if (f.id === 'fKat') { if (this.coba(() => this.edit ? this.kSvc.ubahKategori(this.edit, d) : this.kSvc.tambahKategori(d.nama, d.tipe, d.deskripsi))) { this.toast('Kategori disimpan'); this.edit = null; this.render(); } }
         else if (f.id === 'fAng') {

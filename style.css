@@ -215,6 +215,10 @@ main {
     background: var(--red)
 }
 
+.toast.warn {
+    background: #d98a1b
+}
+
 .toast span {
     cursor: pointer
 }
