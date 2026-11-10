@@ -1,11 +1,48 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pemweb</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MoneyKos - Pengelola Keuangan Kos</title>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h1>NGAB TOLONG DI CICIL DLU</h1>
+<div id="login" class="login hidden">
+  <form id="loginForm" class="card login-card">
+    <div class="logo">💳</div>
+    <h1>Money<span>Kos</span></h1>
+    <p class="muted">Pengelola Keuangan Kos</p>
+    <label>Nama kamu</label>
+    <input id="namaUser" placeholder="mis. asd" required maxlength="20">
+    <button class="btn primary" type="submit">Masuk</button>
+    <p class="muted small">Data disimpan di browser perangkat ini saja.</p>
+  </form>
+</div>
+
+<div id="app" class="app hidden">
+  <aside class="side">
+    <div class="brand"><div class="logo">💳</div><div><b>Money<span>Kos</span></b><small>Pengelola Keuangan Kos</small></div></div>
+    <nav id="nav">
+      <a data-page="dashboard">📊 Dashboard</a>
+      <a data-page="transaksi">🧾 Transaksi</a>
+      <a data-page="kategori">🏷️ Kategori</a>
+      <a data-page="anggaran">🐷 Anggaran Bulanan</a>
+      <a data-page="laporan">📄 Laporan</a>
+    </nav>
+    <div class="side-bottom">
+      <div class="card user"><div class="row"><span>Status Pengguna</span><b id="userName" class="ok"></b></div><small class="muted">Data Anda aman tersimpan secara privat.</small></div>
+      <button id="logout" class="btn danger-soft">⎋ Keluar (Logout)</button>
+    </div>
+  </aside>
+  <main>
+    <header class="top">
+      <div><h2 id="title"></h2><p id="subtitle" class="muted"></p></div>
+      <div class="top-r"><div class="right"><b id="tanggal"></b><br><small class="muted">Periode Kos Aktif</small></div><button id="reset" class="btn ghost">↻ Reset Data</button></div>
+    </header>
+    <div id="toast"></div>
+    <section id="view"></section>
+  </main>
+</div>
+<script src="app.js"></script>
 </body>
 </html>
