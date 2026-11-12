@@ -22,6 +22,8 @@ const hariIni = () => {
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 };
 
+const bulanIniStr = () => hariIni().slice(0, 7);
+
 const tgl = (s) =>
     new Date(s + 'T00:00:00').toLocaleDateString('id-ID', {
         day: 'numeric',
@@ -29,7 +31,7 @@ const tgl = (s) =>
         year: 'numeric',
     });
 
-const bt = (s) => [+s.slice(5, 7), +s.slice(0, 4)]; // 'YYYY-MM-DD' -> [bulan, tahun]
+const bt = (s) => [+s.slice(5, 7), +s.slice(0, 4)]; // 'YYYY-MM-DD' atau 'YYYY-MM' -> [bulan, tahun]
 
 const abstrak = () => {
     throw new Error('Method abstract harus di-override');
@@ -111,7 +113,6 @@ class BaseEntity {
     validate() { abstrak(); }
 }
 
-/** Kontrak CRUD (interface) + implementasi dasar berbasis IStorage; subclass hanya mengisi _fromJSON(). */
 class IRepository {
     #storage;
     #kunci;
@@ -726,48 +727,48 @@ class PemantauService {
             .reduce((s, t) => s + t.getJumlah(), 0);
     }
 
-    #anggaranBulanIni() {
-        const [bulan, tahun] = bt(hariIni());
+    #anggaranBulan(tanggal) {
+        const [bulan, tahun] = bt(tanggal);
         return this.anggaranRepo.cariByBulan(bulan, tahun);
     }
 
-    hitungPengeluaranHariIni() {
-        return this.#keluar((t) => t.getTanggal() === hariIni());
+    hitungPengeluaranHariIni(tanggal = hariIni()) {
+        return this.#keluar((t) => t.getTanggal() === tanggal);
     }
 
     hitungSaldo() {
         return this.transaksiRepo.ambilSemua().reduce((s, t) => s + t.getNominalEfektif(), 0);
     }
 
-    hitungSisaBatasHarian() {
-        const anggaran = this.#anggaranBulanIni();
-        return anggaran ? anggaran.getBatasHarian() - this.hitungPengeluaranHariIni() : 0;
+    hitungSisaBatasHarian(tanggal = hariIni()) {
+        const anggaran = this.#anggaranBulan(tanggal);
+        return anggaran ? anggaran.getBatasHarian() - this.hitungPengeluaranHariIni(tanggal) : 0;
     }
 
-    hitungSisaAnggaranBulanan() {
-        const anggaran = this.#anggaranBulanIni();
-        const prefixBulan = hariIni().slice(0, 7);
+    hitungSisaAnggaranBulanan(tanggal = hariIni()) {
+        const anggaran = this.#anggaranBulan(tanggal);
+        const prefixBulan = tanggal.slice(0, 7);
 
         return anggaran
             ? anggaran.getTotalAnggaran() - this.#keluar((t) => t.getTanggal().startsWith(prefixBulan))
             : 0;
     }
 
-    tampilkanInformasi() {
-        const anggaran = this.#anggaranBulanIni();
+    tampilkanInformasi(tanggal = hariIni()) {
+        const anggaran = this.#anggaranBulan(tanggal);
 
         return new InfoSaldo({
             saldo: this.hitungSaldo(),
-            pengeluaranHariIni: this.hitungPengeluaranHariIni(),
-            sisaBatasHarian: this.hitungSisaBatasHarian(),
-            sisaAnggaranBulanan: this.hitungSisaAnggaranBulanan(),
+            pengeluaranHariIni: this.hitungPengeluaranHariIni(tanggal),
+            sisaBatasHarian: this.hitungSisaBatasHarian(tanggal),
+            sisaAnggaranBulanan: this.hitungSisaAnggaranBulanan(tanggal),
             batas: anggaran ? anggaran.getBatasHarian() : 0,
             total: anggaran ? anggaran.getTotalAnggaran() : 0,
         });
     }
 
-    cekPeringatan() {
-        const info = this.tampilkanInformasi();
+    cekPeringatan(tanggal = hariIni()) {
+        const info = this.tampilkanInformasi(tanggal);
 
         if (!info.total) {
             return new Peringatan(
@@ -786,19 +787,21 @@ class PemantauService {
         }
 
         const persen = (info.pengeluaranHariIni / info.batas) * 100;
+        const labelHari = tanggal === hariIni() ? 'hari ini' : `tanggal ${tgl(tanggal)}`;
+
         if (persen > 100) {
             return new Peringatan(
-                `PERINGATAN! Pengeluaran hari ini melebihi batas harian (${Math.round(persen)}%).`,
+                `PERINGATAN! Pengeluaran ${labelHari} melebihi batas harian (${Math.round(persen)}%).`,
                 LevelPeringatan.MELEBIHI_BATAS
             );
         }
         if (persen >= 80) {
             return new Peringatan(
-                `PERINGATAN! Pengeluaran hari ini sudah mencapai ${Math.round(persen)}% dari batas harian. Hemat ya!`,
+                `PERINGATAN! Pengeluaran ${labelHari} sudah mencapai ${Math.round(persen)}% dari batas harian. Hemat ya!`,
                 LevelPeringatan.HAMPIR_HABIS
             );
         }
-        return new Peringatan('Pengeluaran hari ini masih aman. Pertahankan!', LevelPeringatan.AMAN);
+        return new Peringatan(`Pengeluaran ${labelHari} masih aman. Pertahankan!`, LevelPeringatan.AMAN);
     }
 }
 
@@ -847,21 +850,23 @@ const JUDUL_HALAMAN = {
 };
 
 const KATEGORI_BAWAAN = [
+    ['Uang Kiriman', 'PEMASUKAN'],
+    ['Makan & Minum', 'PENGELUARAN'],
+    ['Kopi & Nongkrong', 'PENGELUARAN'],
+    ['Transportasi', 'PENGELUARAN'],
+    ['Pulsa & Internet', 'PENGELUARAN'],
     ['Makan', 'PENGELUARAN'],
     ['Bayar Kos', 'PENGELUARAN'],
-    ['Transportasi', 'PENGELUARAN'],
     ['Nongkrong', 'PENGELUARAN'],
     ['Rokok', 'PENGELUARAN'],
     ['Kopi & Minum', 'PENGELUARAN'],
     ['Laundry', 'PENGELUARAN'],
-    ['Pulsa & Internet', 'PENGELUARAN'],
     ['Listrik & Air', 'PENGELUARAN'],
     ['Belanja Kebutuhan', 'PENGELUARAN'],
     ['Kuliah & Tugas', 'PENGELUARAN'],
     ['Kesehatan', 'PENGELUARAN'],
     ['Hiburan', 'PENGELUARAN'],
     ['Lainnya', 'PENGELUARAN'],
-    ['Uang Kiriman', 'PEMASUKAN'],
     ['Gaji / Part-time', 'PEMASUKAN'],
     ['Beasiswa', 'PEMASUKAN'],
     ['Lainnya', 'PEMASUKAN'],
@@ -872,6 +877,7 @@ class App {
     edit = null;
     filter = {};
     lap = null;
+    tanggalPantau = hariIni();
 
     constructor() {
         document.addEventListener('click', (e) => this.klik(e));
@@ -895,6 +901,7 @@ class App {
                 .filter((k) => k.startsWith(this.prefix))
                 .forEach((k) => localStorage.removeItem(k));
 
+            this.tanggalPantau = hariIni();
             this.siapkan();
             this.toast('Data direset');
             this.render();
@@ -992,13 +999,14 @@ class App {
         $('#view').innerHTML = this['v_' + this.page]();
     }
 
-    /* --- Dashboard (Alsyan) --- */
+    /* --- Dashboard --- */
     v_dashboard() {
-        const info = this.pSvc.tampilkanInformasi();
-        const [bulan, tahun] = bt(hariIni());
+        const info = this.pSvc.tampilkanInformasi(this.tanggalPantau);
+        const [bulan, tahun] = bt(this.tanggalPantau);
         const ringkasan = this.rSvc.buatRingkasan(bulan, tahun);
         const total = ringkasan.getTotalKebutuhan() + ringkasan.getTotalKeinginan() || 1;
         const terakhir = this.tSvc.tampilkanRiwayat().slice(0, 5);
+        const labelHari = this.tanggalPantau === hariIni() ? 'Hari ini' : tgl(this.tanggalPantau);
 
         const kartu = (judul, nilai, sub) => `
             <div class="card stat">
@@ -1007,10 +1015,10 @@ class App {
                 <span class="muted">${sub}</span>
             </div>`;
 
-        return `${this.banner()}
+        return `${this.banner(this.tanggalPantau)}
         <div class="stats">
             ${kartu('Total Saldo', rp(info.saldo), 'Akumulasi Pemasukan - Pengeluaran')}
-            ${kartu('Pengeluaran Hari Ini', rp(info.pengeluaranHariIni), 'Hari ini')}
+            ${kartu(this.tanggalPantau === hariIni() ? 'Pengeluaran Hari Ini' : 'Pengeluaran (' + tgl(this.tanggalPantau) + ')', rp(info.pengeluaranHariIni), labelHari)}
             ${kartu('Sisa Batas Harian', rp(info.sisaBatasHarian), 'Batas: ' + rp(info.batas) + ' / hari')}
             ${kartu('Sisa Anggaran Bulan Ini', rp(info.sisaAnggaranBulanan), 'Target: ' + rp(info.total))}
         </div>
@@ -1037,374 +1045,410 @@ class App {
         </div>`;
     }
 
-    banner() {
-        const peringatan = this.pSvc.cekPeringatan();
+    banner(tanggal = this.tanggalPantau) {
+        const peringatan = this.pSvc.cekPeringatan(tanggal);
         const kelas = { AMAN: 'AMAN', 'HAMPIR HABIS': 'HAMPIR', 'MELEBIHI BATAS': 'LEBIH' }[peringatan.getLevel()];
         const ikon = { AMAN: '✅', HAMPIR: '🔔', LEBIH: '⛔' }[kelas];
 
         return `
         <div class="alert ${kelas}">
             <span class="ic">${ikon}</span>
-            <div><b>Status Peringatan: ${peringatan.getLevel()}</b><p>${esc(peringatan.getPesan())}</p></div>
+            <div><b>Status Peringatan: ${esc(peringatan.getLevel())}</b><br>${esc(peringatan.getPesan())}</div>
         </div>`;
     }
 
-    badge(t) {
-        if (t instanceof Pemasukan) return '<span class="badge b-in">Pemasukan</span>';
-        if (t.getJenis() === 'KEBUTUHAN') return '<span class="badge b-need">Kebutuhan</span>';
-        return '<span class="badge b-want">Keinginan</span>';
-    }
-
-    tabelTx(list, aksi) {
-        const pilihJenis = (t) => `
-            <select data-jenis="${t.getId()}">
-                <option value="KEBUTUHAN" ${t.getJenis() === 'KEBUTUHAN' ? 'selected' : ''}>Kebutuhan</option>
-                <option value="KEINGINAN" ${t.getJenis() === 'KEINGINAN' ? 'selected' : ''}>Keinginan</option>
-            </select>`;
-
-        const rows = list
-            .map((t) => {
-                const masuk = t instanceof Pemasukan;
-                return `
-                <tr>
-                    <td>${tgl(t.getTanggal())}</td>
-                    <td>${esc(t.getKategori()?.getNama() ?? '-')}</td>
-                    <td class="muted">${esc(t.getKeterangan())}</td>
-                    <td>${aksi && !masuk ? pilihJenis(t) : this.badge(t)}</td>
-                    <td class="n ${masuk ? 'plus' : 'minus'}">${masuk ? '+ ' : '- '}${rp(t.getJumlah())}</td>
-                    ${
-                        aksi
-                            ? `<td class="n">
-                                <button class="btn sm ghost" data-edit-tx="${t.getId()}">Ubah</button>
-                                <button class="btn sm del" data-del-tx="${t.getId()}">Hapus</button>
-                               </td>`
-                            : ''
-                    }
-                </tr>`;
-            })
-            .join('');
+    /* --- Halaman Transaksi (Layout Form Atas Horizontal + Tabel Riwayat Bawah) --- */
+    v_transaksi() {
+        const txEdit = this.edit ? this.tRepo.cariById(this.edit) : null;
+        const tipeAktif = txEdit ? txEdit.getTipe() : TipeTransaksi.PENGELUARAN;
+        const daftarKategori = this.kSvc.ambilKategoriByTipe(tipeAktif);
+        const semuaKategori = this.kSvc.ambilSemuaKategori();
+        const riwayat = this.tSvc.tampilkanRiwayat(this.filter);
 
         return `
-        <table>
-            <tr><th>Tanggal</th><th>Kategori</th><th>Keterangan</th><th>Jenis</th><th class="n">Nominal</th>${aksi ? '<th></th>' : ''}</tr>
-            ${rows || '<tr><td colspan=6 class="empty">Belum ada transaksi</td></tr>'}
-        </table>`;
-    }
-
-    /* --- Transaksi (Daffa) --- */
-    v_transaksi() {
-        const e = this.edit ? this.tRepo.cariById(this.edit) : null;
-        const tipe = e ? e.getTipe() : this.tipeForm || 'PENGELUARAN';
-        const kats = this.kSvc.ambilKategoriByTipe(tipe);
-        const f = this.filter;
-
-        const opt = (list, terpilih) =>
-            list
-                .map(
-                    (k) =>
-                        `<option value="${k.getId()}" ${k.getId() === terpilih ? 'selected' : ''}>${esc(k.getNama())}</option>`
-                )
-                .join('');
-
-        const pilihTipe = (nilai, label) =>
-            `<option value="${nilai}" ${tipe === nilai ? 'selected' : ''}>${label}</option>`;
-
-        const pilihJenis = (nilai, label) =>
-            `<option value="${nilai}" ${e?.getJenis?.() === nilai ? 'selected' : ''}>${label}</option>`;
-
-        const infoKosong = kats.length
-            ? ''
-            : `<small class="muted">Belum ada kategori ${tipe.toLowerCase()}. <a class="ok" style="cursor:pointer" data-go="kategori">Tambah di menu Kategori</a></small>`;
-
-        const kolomJenis =
-            tipe === 'PENGELUARAN'
-                ? `<div><label>Jenis</label><select name="jenis">${pilihJenis('KEBUTUHAN', 'Kebutuhan')}${pilihJenis('KEINGINAN', 'Keinginan')}</select></div>`
-                : '';
-
-        return `${this.banner()}
-        <div class="card">
-            <h3>${e ? 'Ubah' : 'Tambah'} Transaksi</h3>
-            <form class="f" id="fTx">
-                <div>
-                    <label>Tipe</label>
-                    <select id="txTipe" ${e ? 'disabled' : ''}>
-                        ${pilihTipe('PENGELUARAN', 'Pengeluaran')}
-                        ${pilihTipe('PEMASUKAN', 'Pemasukan')}
-                    </select>
+        ${this.banner(this.tanggalPantau)}
+        <div class="card" style="margin-bottom:16px">
+            <h3>${txEdit ? 'Edit Transaksi' : 'Tambah Transaksi'}</h3>
+            <form id="formTx">
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;align-items:end">
+                    <div>
+                        <label>Tipe</label>
+                        <select name="tipe" id="txTipe" ${txEdit ? 'disabled' : ''}>
+                            <option value="PENGELUARAN" ${tipeAktif === 'PENGELUARAN' ? 'selected' : ''}>Pengeluaran</option>
+                            <option value="PEMASUKAN" ${tipeAktif === 'PEMASUKAN' ? 'selected' : ''}>Pemasukan</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Tanggal</label>
+                        <input type="date" name="tanggal" id="txTanggal" required value="${txEdit ? txEdit.getTanggal() : this.tanggalPantau}">
+                    </div>
+                    <div>
+                        <label>Kategori</label>
+                        <select name="kategoriId" id="txKat" required>
+                            <option value="">Pilih kategori</option>
+                            ${daftarKategori.map((k) => `<option value="${k.getId()}" ${txEdit?.getKategori()?.getId() === k.getId() ? 'selected' : ''}>${esc(k.getNama())}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div>
+                        <label>Nominal (Rp)</label>
+                        <input type="number" name="jumlah" min="1" required value="${txEdit ? txEdit.getJumlah() : ''}">
+                    </div>
+                    <div>
+                        <label>Keterangan</label>
+                        <input type="text" name="keterangan" value="${esc(txEdit ? txEdit.getKeterangan() : '')}">
+                    </div>
                 </div>
-                <div><label>Tanggal</label><input type="date" name="tanggal" value="${e ? e.getTanggal() : hariIni()}" required></div>
-                <div>
-                    <label>Kategori</label>
-                    <select name="kategoriId" required>
-                        <option value="">Pilih kategori</option>
-                        ${opt(kats, e?.getKategori()?.getId())}
-                    </select>
-                    ${infoKosong}
-                </div>
-                <div><label>Nominal (Rp)</label><input type="number" name="jumlah" min="1" value="${e ? e.getJumlah() : ''}" required></div>
-                <div><label>Keterangan</label><input name="keterangan" value="${esc(e?.getKeterangan() ?? '')}"></div>
-                ${kolomJenis}
-                <div>
-                    <button class="btn primary" type="submit">${e ? 'Simpan Perubahan' : 'Tambah'}</button>
-                    ${e ? '<button class="btn ghost" type="button" data-batal>Batal</button>' : ''}
+                <div style="display:flex;gap:12px;align-items:flex-end;margin-top:12px">
+                    <div id="wrapJenis" style="min-width:190px;${tipeAktif === 'PEMASUKAN' ? 'display:none' : ''}">
+                        <label>Jenis</label>
+                        <select name="jenis">
+                            <option value="KEBUTUHAN" ${txEdit?.getJenis?.() === 'KEBUTUHAN' ? 'selected' : ''}>Kebutuhan</option>
+                            <option value="KEINGINAN" ${txEdit?.getJenis?.() === 'KEINGINAN' ? 'selected' : ''}>Keinginan</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn">${txEdit ? 'Simpan Perubahan' : 'Tambah'}</button>
+                    ${txEdit ? '<button type="button" class="btn ghost" data-batal>Batal</button>' : ''}
                 </div>
             </form>
         </div>
+
         <div class="card">
             <h3>Riwayat Transaksi</h3>
-            <form class="f" id="fFilter">
-                <div><label>Dari</label><input type="date" name="awal" value="${f.awal || ''}"></div>
-                <div><label>Sampai</label><input type="date" name="akhir" value="${f.akhir || ''}"></div>
+            <form id="formFilterTx" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;align-items:end;margin-bottom:14px">
+                <div>
+                    <label>Dari</label>
+                    <input type="date" name="awal" value="${this.filter.awal || ''}">
+                </div>
+                <div>
+                    <label>Sampai</label>
+                    <input type="date" name="akhir" value="${this.filter.akhir || ''}">
+                </div>
                 <div>
                     <label>Kategori</label>
                     <select name="kategoriId">
                         <option value="">Semua</option>
-                        ${opt(this.kSvc.ambilSemuaKategori(), +f.kategoriId)}
+                        ${semuaKategori.map((k) => `<option value="${k.getId()}" ${String(this.filter.kategoriId) === String(k.getId()) ? 'selected' : ''}>${esc(k.getNama())}</option>`).join('')}
                     </select>
                 </div>
-                <div><button class="btn ghost" type="submit">Terapkan Filter</button></div>
+                <div style="display:flex;gap:8px">
+                    <button type="submit" class="btn ghost">Terapkan Filter</button>
+                    ${(this.filter.awal || this.filter.akhir || this.filter.kategoriId) ? '<button type="button" class="btn ghost" data-reset-filter>Reset</button>' : ''}
+                </div>
             </form>
-            ${this.tabelTx(this.tSvc.tampilkanRiwayat(f), true)}
+            ${this.tabelTx(riwayat, true)}
         </div>`;
     }
 
-    /* --- Kategori (Archy) --- */
+    tabelTx(list, aksi) {
+        if (!list.length) return '<p class="empty">Belum ada transaksi</p>';
+        return `
+        <table>
+            <tr>
+                <th>TANGGAL</th>
+                <th>KATEGORI</th>
+                <th>KETERANGAN</th>
+                <th>JENIS</th>
+                <th class="n">NOMINAL</th>
+                ${aksi ? '<th></th>' : ''}
+            </tr>
+            ${list
+                .map((t) => {
+                    const isKeluar = t instanceof Pengeluaran;
+                    const kolomJenis = !isKeluar
+                        ? '<span class="muted">-</span>'
+                        : aksi
+                            ? `<select data-ubah-jenis="${t.getId()}" style="padding:4px 8px;border-radius:8px">
+                                   <option value="KEBUTUHAN" ${t.getJenis() === 'KEBUTUHAN' ? 'selected' : ''}>Kebutuhan</option>
+                                   <option value="KEINGINAN" ${t.getJenis() === 'KEINGINAN' ? 'selected' : ''}>Keinginan</option>
+                               </select>`
+                            : `<span class="pill ${t.getJenis() === 'KEBUTUHAN' ? 'ok' : ''}">${t.getJenis() === 'KEBUTUHAN' ? 'Kebutuhan' : 'Keinginan'}</span>`;
+
+                    return `
+                    <tr>
+                        <td style="white-space:nowrap">${tgl(t.getTanggal())}</td>
+                        <td>${esc(t.getKategori()?.getNama() || '-')}</td>
+                        <td class="muted">${esc(t.getKeterangan())}</td>
+                        <td>${kolomJenis}</td>
+                        <td class="n ${t instanceof Pemasukan ? 'plus' : ''}" style="white-space:nowrap;font-weight:700">${rp(t.getNominalEfektif())}</td>
+                        ${aksi ? `<td style="white-space:nowrap;text-align:right">
+                            <button type="button" class="btn ghost" style="padding:4px 10px;font-size:12px" data-edit-tx="${t.getId()}">Ubah</button>
+                            <button type="button" class="btn ghost" style="padding:4px 10px;font-size:12px;color:var(--red);background:#fdebed" data-del-tx="${t.getId()}">Hapus</button>
+                        </td>` : ''}
+                    </tr>`;
+                })
+                .join('')}
+        </table>`;
+    }
+
+    /* --- Halaman Kategori (Layout Horizontal Atas + Tabel Full Width Bawah) --- */
     v_kategori() {
-        const e = this.edit ? this.kRepo.cariById(this.edit) : null;
-
-        const pilihTipe = (nilai, label) =>
-            `<option value="${nilai}" ${e?.getTipe() === nilai ? 'selected' : ''}>${label}</option>`;
-
-        const rows = this.kSvc
-            .ambilSemuaKategori()
-            .map((k) => {
-                const masuk = k.getTipe() === 'PEMASUKAN';
-                return `
-                <tr>
-                    <td>${esc(k.getNama())}</td>
-                    <td><span class="badge ${masuk ? 'b-in' : 'b-want'}">${masuk ? 'Pemasukan' : 'Pengeluaran'}</span></td>
-                    <td class="muted">${esc(k.getDeskripsi())}</td>
-                    <td class="n">
-                        <button class="btn sm ghost" data-edit-kat="${k.getId()}">Ubah</button>
-                        <button class="btn sm del" data-del-kat="${k.getId()}">Hapus</button>
-                    </td>
-                </tr>`;
-            })
-            .join('');
+        const katEdit = this.edit ? this.kRepo.cariById(this.edit) : null;
+        const semua = this.kSvc.ambilSemuaKategori();
 
         return `
-        <div class="card">
-            <div class="row">
-                <h3>${e ? 'Ubah' : 'Tambah'} Kategori</h3>
-                <button class="btn sm ghost" data-seed>Pulihkan kategori bawaan</button>
+        <div class="card" style="margin-bottom:16px">
+            <div class="row" style="margin-bottom:10px">
+                <h3>${katEdit ? 'Ubah Kategori' : 'Tambah Kategori'}</h3>
+                <button type="button" class="btn ghost" style="font-size:12px" data-seed-kat>Pulihkan kategori bawaan</button>
             </div>
-            <form class="f" id="fKat">
-                <div><label>Nama</label><input name="nama" value="${esc(e?.getNama() ?? '')}" required></div>
+            <form id="formKat" style="display:grid;grid-template-columns:1.2fr 1fr 1.2fr auto;gap:12px;align-items:end">
+                <div>
+                    <label>Nama</label>
+                    <input type="text" name="nama" required value="${esc(katEdit ? katEdit.getNama() : '')}">
+                </div>
                 <div>
                     <label>Tipe</label>
                     <select name="tipe">
-                        ${pilihTipe('PENGELUARAN', 'Pengeluaran')}
-                        ${pilihTipe('PEMASUKAN', 'Pemasukan')}
+                        <option value="PENGELUARAN" ${katEdit?.getTipe() === 'PENGELUARAN' ? 'selected' : ''}>Pengeluaran</option>
+                        <option value="PEMASUKAN" ${katEdit?.getTipe() === 'PEMASUKAN' ? 'selected' : ''}>Pemasukan</option>
                     </select>
                 </div>
-                <div><label>Deskripsi</label><input name="deskripsi" value="${esc(e?.getDeskripsi() ?? '')}"></div>
                 <div>
-                    <button class="btn primary">${e ? 'Simpan Perubahan' : 'Tambah'}</button>
-                    ${e ? '<button class="btn ghost" type="button" data-batal>Batal</button>' : ''}
+                    <label>Deskripsi</label>
+                    <input type="text" name="deskripsi" value="${esc(katEdit ? katEdit.getDeskripsi() : '')}">
+                </div>
+                <div style="display:flex;gap:8px">
+                    <button type="submit" class="btn">${katEdit ? 'Simpan' : 'Tambah'}</button>
+                    ${katEdit ? '<button type="button" class="btn ghost" data-batal>Batal</button>' : ''}
                 </div>
             </form>
         </div>
+
         <div class="card">
             <table>
-                <tr><th>Nama</th><th>Tipe</th><th>Deskripsi</th><th></th></tr>
-                ${rows}
+                <tr><th>NAMA</th><th>TIPE</th><th>DESKRIPSI</th><th></th></tr>
+                ${semua
+                    .map(
+                        (k) => `
+                    <tr>
+                        <td><b>${esc(k.getNama())}</b></td>
+                        <td><span class="pill ${k.getTipe() === 'PEMASUKAN' ? 'ok' : ''}">${k.getTipe() === 'PEMASUKAN' ? 'Pemasukan' : 'Pengeluaran'}</span></td>
+                        <td class="muted">${esc(k.getDeskripsi())}</td>
+                        <td style="white-space:nowrap;text-align:right">
+                            <button type="button" class="btn ghost" style="padding:4px 10px;font-size:12px" data-edit-kat="${k.getId()}">Ubah</button>
+                            <button type="button" class="btn ghost" style="padding:4px 10px;font-size:12px;color:var(--red);background:#fdebed" data-del-kat="${k.getId()}">Hapus</button>
+                        </td>
+                    </tr>`
+                    )
+                    .join('')}
             </table>
         </div>`;
     }
 
-    /* --- Anggaran (Kayana) --- */
+    /* --- Halaman Anggaran (Layout Horizontal dengan Input Bulan & Tombol Ubah/Hapus) --- */
     v_anggaran() {
-        const e = this.edit ? this.aRepo.cariById(this.edit) : null;
-        const bulan = e ? `${e.getTahun()}-${pad(e.getBulan())}` : hariIni().slice(0, 7);
-
-        const rows = this.aSvc
-            .ambilSemua()
-            .map(
-                (a) => `
-                <tr>
-                    <td>${pad(a.getBulan())}/${a.getTahun()}</td>
-                    <td class="n">${rp(a.getTotalAnggaran())}</td>
-                    <td class="n">${rp(a.getBatasHarian())}</td>
-                    <td class="n">
-                        <button class="btn sm ghost" data-edit-ang="${a.getId()}">Ubah</button>
-                        <button class="btn sm del" data-del-ang="${a.getId()}">Hapus</button>
-                    </td>
-                </tr>`
-            )
-            .join('');
+        const angEdit = this.edit ? this.aRepo.cariById(this.edit) : null;
+        const defaultBulan = angEdit
+            ? `${angEdit.getTahun()}-${pad(angEdit.getBulan())}`
+            : bulanIniStr();
+        const daftar = this.aSvc.ambilSemua();
 
         return `
-        <div class="card">
-            <h3>${e ? 'Ubah' : 'Atur'} Anggaran</h3>
-            <form class="f" id="fAng">
-                <div><label>Bulan</label><input type="month" name="bulan" value="${bulan}" required></div>
-                <div><label>Total Anggaran (Rp)</label><input type="number" name="total" min="1" value="${e ? e.getTotalAnggaran() : ''}" required></div>
-                <div><label>Batas Harian (Rp)</label><input type="number" name="batas" min="0" value="${e ? e.getBatasHarian() : ''}"></div>
+        <div class="card" style="margin-bottom:16px">
+            <h3>${angEdit ? 'Ubah Anggaran' : 'Atur Anggaran'}</h3>
+            <form id="formAnggaran" style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:12px;align-items:end">
                 <div>
-                    <button class="btn primary">Simpan</button>
-                    ${e ? '<button class="btn ghost" type="button" data-batal>Batal</button>' : ''}
+                    <label>Bulan</label>
+                    <input type="month" name="periode" required value="${defaultBulan}">
+                </div>
+                <div>
+                    <label>Total Anggaran (Rp)</label>
+                    <input type="number" name="total" min="1" required value="${angEdit ? angEdit.getTotalAnggaran() : ''}">
+                </div>
+                <div>
+                    <label>Batas Harian (Rp)</label>
+                    <input type="number" name="batas" min="0" value="${angEdit ? angEdit.getBatasHarian() : ''}">
+                </div>
+                <div style="display:flex;gap:8px">
+                    <button type="submit" class="btn">Simpan</button>
+                    ${angEdit ? '<button type="button" class="btn ghost" data-batal>Batal</button>' : ''}
                 </div>
             </form>
         </div>
+
         <div class="card">
             <table>
-                <tr><th>Bulan</th><th class="n">Total Anggaran</th><th class="n">Batas Harian</th><th></th></tr>
-                ${rows || '<tr><td colspan=4 class="empty">Belum ada anggaran</td></tr>'}
+                <tr><th>BULAN</th><th class="n">TOTAL ANGGARAN</th><th class="n">BATAS HARIAN</th><th></th></tr>
+                ${
+                    daftar
+                        .map(
+                            (a) => `
+                    <tr>
+                        <td>${pad(a.getBulan())}/${a.getTahun()}</td>
+                        <td class="n"><b>${rp(a.getTotalAnggaran())}</b></td>
+                        <td class="n"><b>${rp(a.getBatasHarian())}</b></td>
+                        <td style="white-space:nowrap;text-align:right">
+                            <button type="button" class="btn ghost" style="padding:4px 10px;font-size:12px" data-edit-ang="${a.getId()}">Ubah</button>
+                            <button type="button" class="btn ghost" style="padding:4px 10px;font-size:12px;color:var(--red);background:#fdebed" data-del-ang="${a.getId()}">Hapus</button>
+                        </td>
+                    </tr>`
+                        )
+                        .join('') || '<tr><td colspan=4 class="empty">Belum ada anggaran diatur</td></tr>'
+                }
             </table>
         </div>`;
     }
 
-    /* --- Laporan (Kayana) --- */
+    /* --- Halaman Laporan --- */
     v_laporan() {
-        const f = this.filter;
-        const d = new Date();
-        const awal = f.lawal || `${d.getFullYear()}-${pad(d.getMonth() + 1)}-01`;
-        const akhir = f.lakhir || hariIni();
-
-        const opsiKategori = this.kSvc
-            .ambilSemuaKategori()
-            .map(
-                (k) =>
-                    `<option value="${k.getId()}" ${+f.lkat === k.getId() ? 'selected' : ''}>${esc(k.getNama())}</option>`
-            )
-            .join('');
+        const semuaKat = this.kSvc.ambilSemuaKategori();
+        const awalBulan = bulanIniStr() + '-01';
 
         return `
-        <div class="card">
-            <form class="f" id="fLap">
-                <div><label>Dari</label><input type="date" name="awal" value="${awal}" required></div>
-                <div><label>Sampai</label><input type="date" name="akhir" value="${akhir}" required></div>
+        <div class="card" style="margin-bottom:16px">
+            <form id="formLaporan" style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:12px;align-items:end">
+                <div><label>Dari</label><input type="date" name="awal" value="${awalBulan}"></div>
+                <div><label>Sampai</label><input type="date" name="akhir" value="${hariIni()}"></div>
                 <div>
                     <label>Kategori</label>
                     <select name="kategoriId">
                         <option value="">Semua (per periode)</option>
-                        ${opsiKategori}
+                        ${semuaKat.map((k) => `<option value="${k.getId()}">${esc(k.getNama())}</option>`).join('')}
                     </select>
                 </div>
-                <div><button class="btn primary">Tampilkan Laporan</button></div>
+                <button type="submit" class="btn">Tampilkan Laporan</button>
             </form>
         </div>
         ${this.lap ? this.lap.tampilkan() : ''}`;
     }
 
-    /* --- Event --- */
+    /* --- Event Handlers --- */
     klik(e) {
-        const d = e.target.dataset;
-
-        if (d.go) {
-            this.page = d.go;
+        const t = e.target;
+        if (t.dataset.go) {
+            this.page = t.dataset.go;
             this.render();
-        } else if ('batal' in d) {
+        }
+        if (t.hasAttribute('data-batal')) {
             this.edit = null;
             this.render();
-        } else if ('seed' in d) {
+        }
+        if (t.hasAttribute('data-reset-filter')) {
+            this.filter = {};
+            this.render();
+        }
+        if (t.hasAttribute('data-seed-kat')) {
             this.seedKategori();
             this.toast('Kategori bawaan dipulihkan');
             this.render();
-        } else if (d.editTx) {
-            this.edit = +d.editTx;
+        }
+        if (t.dataset.editTx) {
+            this.edit = +t.dataset.editTx;
             this.render();
-        } else if (d.editKat) {
-            this.edit = +d.editKat;
+        }
+        if (t.dataset.delTx && confirm('Hapus transaksi ini?')) {
+            this.tSvc.hapusTransaksi(+t.dataset.delTx);
+            this.toast('Transaksi dihapus');
             this.render();
-        } else if (d.editAng) {
-            this.edit = +d.editAng;
+        }
+        if (t.dataset.editKat) {
+            this.edit = +t.dataset.editKat;
             this.render();
-        } else if (d.delTx && confirm('Hapus transaksi ini?')) {
-            this.tSvc.hapusTransaksi(+d.delTx);
+        }
+        if (t.dataset.delKat && confirm('Hapus kategori ini?')) {
+            if (this.coba(() => this.kSvc.hapusKategori(+t.dataset.delKat))) {
+                this.toast('Kategori dihapus');
+                this.render();
+            }
+        }
+        if (t.dataset.editAng) {
+            this.edit = +t.dataset.editAng;
             this.render();
-        } else if (d.delKat && confirm('Hapus kategori ini?')) {
-            if (this.coba(() => this.kSvc.hapusKategori(+d.delKat))) this.render();
-        } else if (d.delAng && confirm('Hapus anggaran ini?')) {
-            this.aSvc.hapusAnggaran(+d.delAng);
+        }
+        if (t.dataset.delAng && confirm('Hapus anggaran ini?')) {
+            this.aSvc.hapusAnggaran(+t.dataset.delAng);
+            this.toast('Anggaran dihapus');
             this.render();
         }
     }
 
     ubah(e) {
         const t = e.target;
-
         if (t.id === 'txTipe') {
-            this.tipeForm = t.value;
+            const kat = this.kSvc.ambilKategoriByTipe(t.value);
+            $('#txKat').innerHTML =
+                '<option value="">Pilih kategori</option>' +
+                kat.map((k) => `<option value="${k.getId()}">${esc(k.getNama())}</option>`).join('');
+            $('#wrapJenis').style.display = t.value === 'PEMASUKAN' ? 'none' : '';
+        }
+        if (t.id === 'txTanggal' && t.value) {
+            this.tanggalPantau = t.value;
             this.render();
-        } else if (t.dataset.jenis) {
-            this.coba(() => this.klasSvc.tentukanJenis(+t.dataset.jenis, t.value));
-            this.render();
+        }
+        if (t.dataset.ubahJenis) {
+            this.coba(() => {
+                this.klasSvc.tentukanJenis(+t.dataset.ubahJenis, t.value);
+                this.toast('Jenis pengeluaran diperbarui');
+                this.render();
+            });
         }
     }
 
     kirim(e) {
-        const f = e.target;
-        if (f.id === 'loginForm') return;
-
         e.preventDefault();
-        const d = Object.fromEntries(new FormData(f));
+        const f = e.target;
+        const fd = Object.fromEntries(new FormData(f));
 
-        if (f.id === 'fTx') {
-            const berhasil = this.coba(() =>
-                this.edit ? this.tSvc.ubahTransaksi(this.edit, d) : this.tSvc.tambahTransaksi(d)
-            );
-            if (!berhasil) return;
-
-            const peringatan = this.pSvc.cekPeringatan();
-            const level = peringatan.getLevel();
-            const pesan =
-                level === LevelPeringatan.AMAN
-                    ? this.edit
-                        ? 'Transaksi diubah'
-                        : 'Transaksi ditambahkan'
-                    : peringatan.getPesan();
-            const jenisToast =
-                level === LevelPeringatan.MELEBIHI_BATAS
-                    ? true
-                    : level === LevelPeringatan.HAMPIR_HABIS
-                      ? 'warn'
-                      : false;
-
-            this.toast(pesan, jenisToast);
-            this.edit = null;
-            this.render();
-        } else if (f.id === 'fFilter') {
-            this.filter = { ...this.filter, ...d };
-            this.render();
-        } else if (f.id === 'fKat') {
-            const berhasil = this.coba(() =>
-                this.edit
-                    ? this.kSvc.ubahKategori(this.edit, d)
-                    : this.kSvc.tambahKategori(d.nama, d.tipe, d.deskripsi)
-            );
-            if (!berhasil) return;
-
-            this.toast('Kategori disimpan');
-            this.edit = null;
-            this.render();
-        } else if (f.id === 'fAng') {
-            const [tahun, bulan] = d.bulan.split('-').map(Number);
-            const berhasil = this.coba(() => {
-                this.aSvc.aturAnggaranBulanan(bulan, tahun, d.total);
-                if (d.batas !== '') this.aSvc.aturBatasHarian(bulan, tahun, d.batas);
+        if (f.id === 'formTx') {
+            const ok = this.coba(() => {
+                if (this.edit) this.tSvc.ubahTransaksi(this.edit, fd);
+                else this.tSvc.tambahTransaksi(fd);
             });
-            if (!berhasil) return;
+            if (ok) {
+                this.edit = null;
+                this.tanggalPantau = fd.tanggal;
 
-            this.toast('Anggaran disimpan');
-            this.edit = null;
+                const p = this.pSvc.cekPeringatan(fd.tanggal);
+                if (p.getLevel() === LevelPeringatan.MELEBIHI_BATAS) {
+                    this.toast(p.getPesan(), true);
+                } else if (p.getLevel() === LevelPeringatan.HAMPIR_HABIS) {
+                    this.toast(p.getPesan(), 'warn');
+                } else {
+                    this.toast('Transaksi tersimpan! ' + p.getPesan());
+                }
+                this.render();
+            }
+        }
+
+        if (f.id === 'formFilterTx') {
+            this.filter = {
+                awal: fd.awal,
+                akhir: fd.akhir,
+                kategoriId: fd.kategoriId,
+            };
             this.render();
-        } else if (f.id === 'fLap') {
-            this.filter = { ...this.filter, lawal: d.awal, lakhir: d.akhir, lkat: d.kategoriId };
+        }
+
+        if (f.id === 'formKat') {
+            const ok = this.coba(() => {
+                if (this.edit) this.kSvc.ubahKategori(this.edit, fd);
+                else this.kSvc.tambahKategori(fd.nama, fd.tipe, fd.deskripsi);
+            });
+            if (ok) {
+                this.edit = null;
+                this.toast('Kategori tersimpan');
+                this.render();
+            }
+        }
+
+        if (f.id === 'formAnggaran') {
+            const [tahun, bulan] = fd.periode.split('-').map(Number);
+            const ok = this.coba(() => {
+                this.aSvc.aturAnggaranBulanan(bulan, tahun, +fd.total);
+                if (fd.batas !== '') this.aSvc.aturBatasHarian(bulan, tahun, +fd.batas);
+            });
+            if (ok) {
+                this.edit = null;
+                this.toast('Anggaran tersimpan');
+                this.render();
+            }
+        }
+
+        if (f.id === 'formLaporan') {
             this.coba(() => {
-                this.lap = this.lSvc.terimaPermintaan(d);
+                this.lap = this.lSvc.terimaPermintaan(fd);
+                this.render();
             });
-            this.render();
         }
     }
 }
