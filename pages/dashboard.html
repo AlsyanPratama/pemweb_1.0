@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard - MoneyKos</title>
+<link rel="stylesheet" href="../css/base.css">
+<link rel="stylesheet" href="../css/layout.css">
+<link rel="stylesheet" href="../css/dashboard.css">
+</head>
+<body>
+<div class="app">
+  <aside class="side" id="sidebar"></aside>
+  <main>
+    <header class="top">
+      <div><h2>Dashboard Utama</h2><p class="muted">Pantau saldo, anggaran harian, dan peringatan keuangan kos kamu.</p></div>
+      <div class="top-r"><div class="right"><b id="tanggal"></b><br><small class="muted">Periode Kos Aktif</small></div><button id="reset" class="btn ghost">↻ Reset Data</button></div>
+    </header>
+    <div id="toast"></div>
+    <section id="view">
+      <div id="banner"></div>
+
+      <div class="stats">
+        <div class="card stat">
+          <small>Total Saldo</small>
+          <h3 id="saldo"></h3>
+          <span class="muted">Akumulasi Pemasukan - Pengeluaran</span>
+        </div>
+        <div class="card stat">
+          <small>Pengeluaran Hari Ini</small>
+          <h3 id="keluarHariIni"></h3>
+          <span class="muted">Hari ini</span>
+        </div>
+        <div class="card stat">
+          <small>Sisa Batas Harian</small>
+          <h3 id="sisaHarian"></h3>
+          <span class="muted" id="infoBatas"></span>
+        </div>
+        <div class="card stat">
+          <small>Sisa Anggaran Bulan Ini</small>
+          <h3 id="sisaBulan"></h3>
+          <span class="muted" id="infoTarget"></span>
+        </div>
+      </div>
+
+      <div class="two">
+        <div class="card">
+          <div class="row"><h3>Kebutuhan vs Keinginan</h3><span class="muted">Bulan Ini</span></div>
+          <p class="muted">Fitur 6.0 membantu mengevaluasi seberapa boros kamu membelanjakan uang kiriman kos untuk keinginan non-esensial.</p>
+          <div class="row ok"><b>● Kebutuhan</b><b id="totalKebutuhan"></b></div>
+          <div class="bar"><i id="barKebutuhan" style="background:#4fb77f"></i></div>
+          <div class="row" style="color:var(--red)"><b>● Keinginan</b><b id="totalKeinginan"></b></div>
+          <div class="bar"><i id="barKeinginan" style="background:#e05468"></i></div>
+          <div class="row">
+            <span class="muted">Persentase Keinginan:</span>
+            <span class="pill" id="persenKeinginan"></span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="row">
+            <h3>Transaksi Terakhir</h3>
+            <a class="ok" style="font-weight:600" href="transaksi.html">Lihat Semua →</a>
+          </div>
+          <div id="tabelTerakhir"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+<script type="module" src="../js/features/dashboard/dashboardPage.js"></script>
+</body>
+</html>

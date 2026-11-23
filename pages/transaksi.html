@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Transaksi - MoneyKos</title>
+<link rel="stylesheet" href="../css/base.css">
+<link rel="stylesheet" href="../css/layout.css">
+</head>
+<body>
+<div class="app">
+  <aside class="side" id="sidebar"></aside>
+  <main>
+    <header class="top">
+      <div><h2>Transaksi</h2><p class="muted">Catat dan kelola pemasukan serta pengeluaran.</p></div>
+      <div class="top-r"><div class="right"><b id="tanggal"></b><br><small class="muted">Periode Kos Aktif</small></div><button id="reset" class="btn ghost">↻ Reset Data</button></div>
+    </header>
+    <div id="toast"></div>
+    <section id="view">
+      <div id="banner"></div>
+
+      <div class="card">
+        <h3 id="judulForm">Tambah Transaksi</h3>
+        <form class="f" id="fTx">
+          <div>
+            <label>Tipe</label>
+            <select id="txTipe">
+              <option value="PENGELUARAN">Pengeluaran</option>
+              <option value="PEMASUKAN">Pemasukan</option>
+            </select>
+          </div>
+          <div><label>Tanggal</label><input type="date" name="tanggal" required></div>
+          <div>
+            <label>Kategori</label>
+            <select name="kategoriId" id="txKategori" required></select>
+            <small class="muted hidden" id="infoKosong">Belum ada kategori. <a class="ok" href="kategori.html">Tambah di menu Kategori</a></small>
+          </div>
+          <div><label>Nominal (Rp)</label><input type="number" name="jumlah" min="1" required></div>
+          <div><label>Keterangan</label><input name="keterangan"></div>
+          <div id="kolomJenis">
+            <label>Jenis</label>
+            <select name="jenis">
+              <option value="KEBUTUHAN">Kebutuhan</option>
+              <option value="KEINGINAN">Keinginan</option>
+            </select>
+          </div>
+          <div>
+            <button class="btn primary" type="submit" id="btnSimpan">Tambah</button>
+            <button class="btn ghost hidden" type="button" id="btnBatal">Batal</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="card">
+        <h3>Riwayat Transaksi</h3>
+        <form class="f" id="fFilter">
+          <div><label>Dari</label><input type="date" name="awal"></div>
+          <div><label>Sampai</label><input type="date" name="akhir"></div>
+          <div>
+            <label>Kategori</label>
+            <select name="kategoriId" id="filterKategori"></select>
+          </div>
+          <div><button class="btn ghost" type="submit">Terapkan Filter</button></div>
+        </form>
+        <div id="tabel"></div>
+      </div>
+    </section>
+  </main>
+</div>
+<script type="module" src="../js/features/transaksi/transaksiPage.js"></script>
+</body>
+</html>

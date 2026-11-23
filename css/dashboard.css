@@ -1,0 +1,35 @@
+/* ===== DASHBOARD: kartu statistik, dua kolom, bar kebutuhan vs keinginan ===== */
+.stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px
+}
+
+.two {
+    display: grid;
+    grid-template-columns: 5fr 7fr;
+    gap: 20px
+}
+
+.bar {
+    height: 12px;
+    background: #eef2f7;
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 6px 0 16px
+}
+
+.bar i {
+    display: block;
+    height: 100%
+}
+
+@media(max-width:900px) {
+    .stats {
+        grid-template-columns: 1fr 1fr
+    }
+
+    .two {
+        grid-template-columns: 1fr
+    }
+}

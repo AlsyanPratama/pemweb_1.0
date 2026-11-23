@@ -1,0 +1,170 @@
+/* ===== LAYOUT: kerangka halaman (sidebar, header, toast, area konten) ===== */
+.app {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    min-height: 100vh
+}
+
+.side {
+    background: #fff;
+    border-right: 1px solid var(--bd);
+    padding: 20px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    position: sticky;
+    top: 0;
+    height: 100vh
+}
+
+.brand {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    padding: 0 6px 16px;
+    border-bottom: 1px solid var(--bd)
+}
+
+.brand small {
+    display: block;
+    color: var(--mu)
+}
+
+.brand b {
+    font-size: 1.3rem
+}
+
+nav {
+    display: grid;
+    gap: 4px
+}
+
+nav a {
+    display: block;
+    text-decoration: none;
+    padding: 13px 16px;
+    border-radius: 14px;
+    cursor: pointer;
+    font-weight: 500;
+    color: #44546a
+}
+
+nav a:hover {
+    background: var(--bg)
+}
+
+nav a.on {
+    background: var(--gl);
+    color: var(--g);
+    font-weight: 600
+}
+
+.side-bottom {
+    margin-top: auto;
+    display: grid;
+    gap: 10px
+}
+
+.user {
+    padding: 14px
+}
+
+.user small {
+    display: block;
+    margin-top: 6px
+}
+
+main {
+    padding: 0 0 40px
+}
+
+.top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 22px 36px;
+    background: #fff;
+    border-bottom: 1px solid var(--bd)
+}
+
+.top h2 {
+    margin: 0
+}
+
+.top p {
+    margin: 4px 0 0
+}
+
+.top-r {
+    display: flex;
+    gap: 14px;
+    align-items: center
+}
+
+#toast {
+    padding: 20px 36px 0
+}
+
+.toast {
+    padding: 14px 20px;
+    border-radius: 14px;
+    color: #fff;
+    background: #43926a;
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px
+}
+
+.toast.err {
+    background: var(--red)
+}
+
+.toast.warn {
+    background: #d98a1b
+}
+
+.toast span {
+    cursor: pointer
+}
+
+#view {
+    padding: 20px 36px;
+    display: grid;
+    gap: 20px
+}
+
+@media(max-width:900px) {
+    .app {
+        grid-template-columns: 1fr
+    }
+
+    .side {
+        position: static;
+        height: auto
+    }
+
+    #view,
+    .top,
+    #toast {
+        padding-left: 16px;
+        padding-right: 16px
+    }
+}
+
+/* ikon menu & tombol di sidebar */
+nav a,
+.side .btn {
+    display: flex;
+    align-items: center;
+    gap: 10px
+}
+
+.side .btn {
+    justify-content: center
+}
+
+nav a img,
+.side .btn img {
+    width: 20px;
+    height: 20px
+}
