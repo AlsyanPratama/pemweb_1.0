@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Anggaran Bulanan - MoneyKos</title>
+<link rel="stylesheet" href="../css/base.css">
+<link rel="stylesheet" href="../css/layout.css">
+</head>
+<body>
+<div class="app">
+  <aside class="side" id="sidebar"></aside>
+  <main>
+    <header class="top">
+      <div><h2>Anggaran Bulanan</h2><p class="muted">Atur anggaran bulanan dan batas pengeluaran harian.</p></div>
+      <div class="top-r"><div class="right"><b id="tanggal"></b><br><small class="muted">Periode Kos Aktif</small></div><button id="reset" class="btn ghost">↻ Reset Data</button></div>
+    </header>
+    <div id="toast"></div>
+    <section id="view">
+      <div class="card">
+        <h3 id="judulForm">Atur Anggaran</h3>
+        <form class="f" id="fAng">
+          <div><label>Bulan</label><input type="month" name="bulan" required></div>
+          <div><label>Total Anggaran (Rp)</label><input type="number" name="total" min="1" required></div>
+          <div><label>Batas Harian (Rp)</label><input type="number" name="batas" min="0"></div>
+          <div>
+            <button class="btn primary">Simpan</button>
+            <button class="btn ghost hidden" type="button" id="btnBatal">Batal</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="card">
+        <table>
+          <thead><tr><th>Bulan</th><th class="n">Total Anggaran</th><th class="n">Batas Harian</th><th></th></tr></thead>
+          <tbody id="daftar"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>
+<script type="module" src="../js/features/anggaran/anggaranPage.js"></script>
+</body>
+</html>

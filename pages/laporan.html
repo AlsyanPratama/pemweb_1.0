@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Laporan - MoneyKos</title>
+<link rel="stylesheet" href="../css/base.css">
+<link rel="stylesheet" href="../css/layout.css">
+<link rel="stylesheet" href="../css/laporan.css">
+</head>
+<body>
+<div class="app">
+  <aside class="side" id="sidebar"></aside>
+  <main>
+    <header class="top">
+      <div><h2>Laporan Keuangan</h2><p class="muted">Lihat rekap per periode atau per kategori.</p></div>
+      <div class="top-r"><div class="right"><b id="tanggal"></b><br><small class="muted">Periode Kos Aktif</small></div><button id="reset" class="btn ghost">↻ Reset Data</button></div>
+    </header>
+    <div id="toast"></div>
+    <section id="view">
+      <div class="card">
+        <form class="f" id="fLap">
+          <div><label>Dari</label><input type="date" name="awal" required></div>
+          <div><label>Sampai</label><input type="date" name="akhir" required></div>
+          <div>
+            <label>Kategori</label>
+            <select name="kategoriId" id="lapKategori"></select>
+          </div>
+          <div><button class="btn primary">Tampilkan Laporan</button></div>
+        </form>
+      </div>
+
+      <div id="hasil"></div>
+    </section>
+  </main>
+</div>
+<script type="module" src="../js/features/laporan/laporanPage.js"></script>
+</body>
+</html>

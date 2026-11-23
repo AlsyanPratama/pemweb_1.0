@@ -1,0 +1,12 @@
+/* ===== LAPORAN: ringkasan tiga kartu ===== */
+.sum {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px
+}
+
+@media(max-width:900px) {
+    .sum {
+        grid-template-columns: 1fr 1fr
+    }
+}
